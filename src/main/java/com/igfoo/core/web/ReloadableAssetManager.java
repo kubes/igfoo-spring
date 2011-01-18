@@ -404,18 +404,22 @@ public class ReloadableAssetManager
     // add the global scripts
     if (global && globalAssets != null) {
       List<Map> globalScripts = (List<Map>)globalAssets.get(SCRIPTS);
-      for (Map<String, String> scriptAttrs : globalScripts) {
-        String scriptTag = createScriptTag(scriptAttrs, locale);
-        scriptTags.add(scriptTag);
+      if (globalScripts != null && globalScripts.size() > 0) {
+        for (Map<String, String> scriptAttrs : globalScripts) {
+          String scriptTag = createScriptTag(scriptAttrs, locale);
+          scriptTags.add(scriptTag);
+        }
       }
     }
 
     // add the scripts for the path
     if (pathAssets != null) {
       List<Map> pathScripts = (List<Map>)pathAssets.get(SCRIPTS);
-      for (Map<String, String> scriptAttrs : pathScripts) {
-        String scriptTag = createScriptTag(scriptAttrs, locale);
-        scriptTags.add(scriptTag);
+      if (pathScripts != null && pathScripts.size() > 0) {
+        for (Map<String, String> scriptAttrs : pathScripts) {
+          String scriptTag = createScriptTag(scriptAttrs, locale);
+          scriptTags.add(scriptTag);
+        }
       }
     }
 
@@ -448,18 +452,22 @@ public class ReloadableAssetManager
     // add the global meta tags
     if (global && globalAssets != null) {
       List<Map> globalMetas = (List<Map>)globalAssets.get(METAS);
-      for (Map<String, String> metaAttrs : globalMetas) {
-        String metaTag = createMetaTag(metaAttrs, locale);
-        metaTags.add(metaTag);
+      if (globalMetas != null && globalMetas.size() > 0) {
+        for (Map<String, String> metaAttrs : globalMetas) {
+          String metaTag = createMetaTag(metaAttrs, locale);
+          metaTags.add(metaTag);
+        }
       }
     }
 
     // add the met tags for the path
     if (pathAssets != null) {
       List<Map> pathMetas = (List<Map>)pathAssets.get(METAS);
-      for (Map<String, String> metaAttrs : pathMetas) {
-        String metaTag = createMetaTag(metaAttrs, locale);
-        metaTags.add(metaTag);
+      if (pathMetas != null && pathMetas.size() > 0) {
+        for (Map<String, String> metaAttrs : pathMetas) {
+          String metaTag = createMetaTag(metaAttrs, locale);
+          metaTags.add(metaTag);
+        }
       }
     }
 
@@ -491,19 +499,23 @@ public class ReloadableAssetManager
 
     // add the global links
     if (global && globalAssets != null) {
-      List<Map> globalMetas = (List<Map>)globalAssets.get(LINKS);
-      for (Map<String, String> linkAttrs : globalMetas) {
-        String linkTag = createLinkTag(linkAttrs, locale);
-        linkTags.add(linkTag);
+      List<Map> globalLinks = (List<Map>)globalAssets.get(LINKS);
+      if (globalLinks != null && globalLinks.size() > 0) {
+        for (Map<String, String> linkAttrs : globalLinks) {
+          String linkTag = createLinkTag(linkAttrs, locale);
+          linkTags.add(linkTag);
+        }
       }
     }
 
     // add the links for the path
     if (pathAssets != null) {
       List<Map> pathLinks = (List<Map>)pathAssets.get(LINKS);
-      for (Map<String, String> linkAttrs : pathLinks) {
-        String linkTag = createLinkTag(linkAttrs, locale);
-        linkTags.add(linkTag);
+      if (pathLinks != null && pathLinks.size() > 0) {
+        for (Map<String, String> linkAttrs : pathLinks) {
+          String linkTag = createLinkTag(linkAttrs, locale);
+          linkTags.add(linkTag);
+        }
       }
     }
 
