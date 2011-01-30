@@ -701,6 +701,118 @@ public class ReloadableAssetManager
     return title;
   }
 
+  @Override
+  public List<String> getDynamicScripts(List scripts, Locale locale) {
+
+    // create a new list every time for dynamic scripts
+    List<String> scriptTags = new ArrayList<String>();
+
+    // if we have scripts, loop through
+    if (scripts != null && scripts.size() > 0) {
+      for (int i = 0; i < scripts.size(); i++) {
+
+        // either is a map of attributes or is just a string, create the single
+        // script tag from either
+        Object scriptObj = scripts.get(i);
+        if (scriptObj instanceof Map) {
+          Map<String, String> scriptAttrs = (Map<String, String>)scriptObj;
+          if (scriptAttrs != null && scriptAttrs.size() > 0) {
+            String scriptTag = createScriptTag(scriptAttrs, locale);
+            scriptTags.add(scriptTag);
+          }
+        }
+        else if (scriptObj instanceof String) {
+
+          // set default values for script tag if shorthand string
+          Map<String, String> scriptAttrs = new LinkedHashMap<String, String>();
+          scriptAttrs.put("type", "text/javascript");
+          scriptAttrs.put("src", (String)scriptObj);
+          String scriptTag = createScriptTag(scriptAttrs, locale);
+          scriptTags.add(scriptTag);
+        }
+      }
+    }
+
+    // don't allow the list to be modified by caller
+    Collections.unmodifiableList(scriptTags);
+
+    return scriptTags;
+  }
+
+  @Override
+  public List<String> getDynamicMetas(List<Map<String, String>> metas,
+    Locale locale) {
+
+    // not in cache create a new list and populate with the global scripts
+    List<String> metaTags = new ArrayList<String>();
+
+    // if we have metas, loop through
+    if (metas != null && metas.size() > 0) {
+      for (Map<String, String> metaAttrs : metas) {
+        if (metaAttrs != null && metaAttrs.size() > 0) {
+          String metaTag = createMetaTag(metaAttrs, locale);
+          metaTags.add(metaTag);
+        }
+      }
+    }
+
+    // don't allow the list to be modified by caller
+    Collections.unmodifiableList(metaTags);
+
+    return metaTags;
+  }
+  
+  @Override
+  public List<String> getDynamicLinks(List links, Locale locale) {
+
+    // create a new list every time for dynamic links
+    List<String> linkTags = new ArrayList<String>();
+
+    // if we have links, loop through
+    if (links != null && links.size() > 0) {
+      for (int i = 0; i < links.size(); i++) {
+
+        // either is a map of attributes or is just a string, create the single
+        // link tag from either
+        Object linkObj = links.get(i);
+        if (linkObj instanceof Map) {
+          Map<String, String> linkAttrs = (Map<String, String>)linkObj;
+          if (linkAttrs != null && linkAttrs.size() > 0) {
+            String linkTag = createScriptTag(linkAttrs, locale);
+            linkTags.add(linkTag);
+          }
+        }
+        else if (linkObj instanceof String) {
+
+          // set default values for link tag if shorthand string
+          Map<String, String> linkAttrs = new LinkedHashMap<String, String>();
+          linkAttrs.put("rel", "stylesheet");
+          linkAttrs.put("type", "text/css");
+          linkAttrs.put("href", (String)linkObj);
+          String linkTag = createLinkTag(linkAttrs, locale);
+          linkTags.add(linkTag);
+        }
+      }
+    }
+
+    // don't allow the list to be modified by caller
+    Collections.unmodifiableList(linkTags);
+
+    return linkTags;
+  }
+  
+  @Override
+  public String getDynamicTitle(String title, Locale locale) {
+    
+    // convert to message if necessary
+    if (StringUtils.isNotBlank(title)) {
+      title = getMessage(title, locale);
+      title = "<title>" + title + "</title>";
+    }
+
+    return title;
+  }
+
   public void setMessageSource(MessageSource messageSource) {
     this.messageSource = messageSource;
   }

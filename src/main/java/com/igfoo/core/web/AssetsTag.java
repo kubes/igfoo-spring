@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
@@ -22,6 +23,7 @@ public class AssetsTag
   private String types;
   private String names;
   private boolean includeGlobal = true;
+  private boolean includeDynamic = true;
 
   public void setTypes(String types) {
     this.types = types;
@@ -33,6 +35,10 @@ public class AssetsTag
 
   public void setIncludeGlobal(boolean includeGlobal) {
     this.includeGlobal = includeGlobal;
+  }
+
+  public void setIncludeDynamic(boolean includeDynamic) {
+    this.includeDynamic = includeDynamic;
   }
 
   public int doStartTag()
@@ -59,7 +65,7 @@ public class AssetsTag
             nameList.add(includeName);
           }
 
-          List<String> titles = new ArrayList<String>();
+          String title = null;
           List<String> metas = new ArrayList<String>();
           List<String> links = new ArrayList<String>();
           List<String> scripts = new ArrayList<String>();
@@ -67,9 +73,10 @@ public class AssetsTag
           // get all the named resources
           for (String name : nameList) {
 
+            // get only the first title, multiple titles not allowed
             String namedTitle = assetManager.getTitleForName(name, curLocale);
-            if (StringUtils.isNotBlank(namedTitle)) {
-              titles.add(namedTitle);
+            if (title == null && StringUtils.isNotBlank(namedTitle)) {
+              title = namedTitle;
             }
             List<String> namedMetas = assetManager.getMetaForName(name,
               curLocale);
@@ -88,31 +95,30 @@ public class AssetsTag
             }
           }
 
-          // write out only a single titles
-          if (titles != null && titles.size() > 0) {
-            String title = titles.get(0);
+          // write out the title
+          if (StringUtils.isNotBlank(title)) {
             out.print(title + "\n");
-            request.setAttribute("titleTag", title);
+            request.setAttribute(Assets.TITLE_TAG, title);
           }
-          
+
           // write out meta tags, links, and scripts in that order
           if (metas != null && !metas.isEmpty()) {
             for (String header : metas) {
               out.print(header + "\n");
             }
-            request.setAttribute("metaTags", metas);
+            request.setAttribute(Assets.META_TAGS, metas);
           }
           if (links != null && links.size() > 0) {
             for (String link : links) {
               out.print(link + "\n");
             }
-            request.setAttribute("linkTags", links);
+            request.setAttribute(Assets.LINK_TAGS, links);
           }
           if (scripts != null && scripts.size() > 0) {
             for (String script : scripts) {
               out.print(script + "\n");
             }
-            request.setAttribute("scriptTags", scripts);
+            request.setAttribute(Assets.SCRIPT_TAGS, scripts);
           }
 
         }
@@ -135,45 +141,110 @@ public class AssetsTag
           if (allTypes || types.contains("title")) {
             String title = assetManager.getTitleForPath(requestPath, curLocale,
               includeGlobal);
+
+            // dynamic titles from controller with override any title for path
+            if (includeDynamic) {
+              String dynTitle = (String)request.getAttribute(Assets.TITLE);
+              if (StringUtils.isNotBlank(dynTitle)) {
+                String locTitle = assetManager.getDynamicTitle(dynTitle,
+                  curLocale);
+                if (StringUtils.isNotBlank(locTitle)) {
+                  title = locTitle;
+                }
+              }
+            }
+
             if (StringUtils.isNotBlank(title)) {
               out.print(title + "\n");
-              request.setAttribute("titleTag", title);
+              request.setAttribute(Assets.TITLE_TAG, title);
             }
           }
 
           if (allTypes || types.contains("meta")) {
+
             List<String> metas = assetManager.getMetaForPath(requestPath,
               curLocale, includeGlobal);
+
+            if (includeDynamic) {
+              List<Map<String, String>> dynMetas = (List<Map<String, String>>)request
+                .getAttribute(Assets.METAS);
+              if (dynMetas != null && dynMetas.size() > 0) {
+                List<String> allmetas = new ArrayList<String>();
+                allmetas.addAll(metas);
+                List<String> convMetas = assetManager.getDynamicMetas(dynMetas,
+                  curLocale);
+                if (convMetas != null && convMetas.size() > 0) {
+                  allmetas.addAll(convMetas);
+                }
+                metas = allmetas;
+              }
+            }
+
             if (metas != null && !metas.isEmpty()) {
               for (String header : metas) {
                 out.print(header + "\n");
               }
-              request.setAttribute("metaTags", metas);
+              request.setAttribute(Assets.META_TAGS, metas);
             }
           }
 
           if (allTypes || types.contains("links")) {
+
             List<String> links = assetManager.getLinksForPath(requestPath,
               curLocale, includeGlobal);
+
+            if (includeDynamic) {
+              List<Map<String, String>> dynLinks = (List<Map<String, String>>)request
+                .getAttribute(Assets.LINKS);
+              if (dynLinks != null && dynLinks.size() > 0) {
+                List<String> alllinks = new ArrayList<String>();
+                alllinks.addAll(links);
+                List<String> convLinks = assetManager.getDynamicLinks(dynLinks,
+                  curLocale);
+                if (convLinks != null && convLinks.size() > 0) {
+                  alllinks.addAll(convLinks);
+                }
+                links = alllinks;
+              }
+            }
+
             if (links != null && links.size() > 0) {
               for (String link : links) {
                 out.print(link + "\n");
               }
-              request.setAttribute("linkTags", links);
+              request.setAttribute(Assets.LINK_TAGS, links);
             }
           }
 
           if (allTypes || types.contains("scripts")) {
+
             List<String> scripts = assetManager.getScriptsForPath(requestPath,
               curLocale, includeGlobal);
+
+            if (includeDynamic) {
+              List<Map<String, String>> dynScripts = (List<Map<String, String>>)request
+                .getAttribute(Assets.SCRIPTS);
+              if (dynScripts != null && dynScripts.size() > 0) {
+                List<String> allscripts = new ArrayList<String>();
+                allscripts.addAll(scripts);
+                List<String> convScripts = assetManager.getDynamicScripts(
+                  dynScripts, curLocale);
+                if (convScripts != null && convScripts.size() > 0) {
+                  allscripts.addAll(convScripts);
+                }
+                scripts = allscripts;
+              }
+            }
+
             if (scripts != null && scripts.size() > 0) {
               for (String script : scripts) {
                 out.print(script + "\n");
               }
-              request.setAttribute("scriptTags", scripts);
+              request.setAttribute(Assets.SCRIPT_TAGS, scripts);
             }
           }
         }
+
       }
     }
     catch (IOException e) {
