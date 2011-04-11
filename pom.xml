@@ -6,7 +6,7 @@
   <groupId>com.igfoo</groupId>
   <artifactId>igfoo-spring</artifactId>
   <packaging>jar</packaging>
-  <version>1.0.2</version>
+  <version>1.0.2-SNAPSHOT</version>
   <name>igfoo-spring</name>
   <url>http://www.igfoo.com</url>
 
@@ -236,9 +236,9 @@
   </build>
 
   <scm>
-    <connection>scm:git:ssh://s01.igfoo.com/u01/git/igfoo-spring.git</connection>
-    <url>scm:git:ssh://git@s01.igfoo.com/u01/git/igfoo-spring.git</url>
-    <developerConnection>scm:git:ssh://git@s01.igfoo.com/u01/git/igfoo-spring.git</developerConnection>  
+    <connection>scm:git:git://s01.igfoo.com:igfoo-spring.git</connection>
+    <url>scm:git:git://git@s01.igfoo.com:igfoo-spring.git</url>
+    <developerConnection>scm:git:git://git@s01.igfoo.com:igfoo-spring.git</developerConnection>  
   </scm>
   
 </project>
