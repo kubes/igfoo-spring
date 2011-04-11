@@ -13,8 +13,6 @@ import javax.servlet.http.HttpServletRequest;
 public class AssetsFilter
   implements Filter {
 
-  public static final String REQUEST_PATH = "assets.request.path";
-
   @Override
   public void init(FilterConfig config)
     throws ServletException {
@@ -26,7 +24,7 @@ public class AssetsFilter
     FilterChain chain)
     throws IOException, ServletException {
     HttpServletRequest httpReq = (HttpServletRequest)request;
-    request.setAttribute(REQUEST_PATH, httpReq.getServletPath());
+    request.setAttribute(Assets.PATH, httpReq.getServletPath());
     chain.doFilter(request, response);
   }
 

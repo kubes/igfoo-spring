@@ -2,6 +2,9 @@ package com.igfoo.core.web;
 
 public interface Assets {
   
+  // the asset path
+  public static final String PATH = "assets.request.path";
+  
   // dynamic asset inclusion from controllers
   public static final String TITLE = "title";
   public static final String METAS = "metas";

@@ -132,8 +132,7 @@ public class AssetsTag
           }
           boolean allTypes = types.isEmpty();
 
-          String requestPath = (String)request
-            .getAttribute("assets.request.path");
+          String requestPath = (String)request.getAttribute(Assets.PATH);
           if (requestPath == null) {
             requestPath = request.getRequestURI();
           }
