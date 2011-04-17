@@ -36,6 +36,7 @@ public class ReloadableAssetManager
   private Resource[] resources;
   private String rootDir;
   private Map<String, Long> fileModTimes = new ConcurrentHashMap<String, Long>();
+  private Map<String, String> aliases = new ConcurrentHashMap<String, String>();
   private Map<String, Map> assets = new ConcurrentHashMap<String, Map>();
   private Map<String, Map> namedAssets = new ConcurrentHashMap<String, Map>();
   private boolean caching = false;
@@ -81,6 +82,19 @@ public class ReloadableAssetManager
         }
       }
     }
+  }
+
+  private String replaceAlias(String value) {
+    return aliases.containsKey(value) ? aliases.get(value) : value;
+  }
+
+  private Map<String, String> replaceAliases(Map<String, String> keyVals) {
+    Map<String, String> replaced = new LinkedHashMap<String, String>();
+    for (Entry<String, String> keyVal : keyVals.entrySet()) {
+      String value = replaceAlias(keyVal.getValue());
+      replaced.put(keyVal.getKey(), value);
+    }
+    return replaced;
   }
 
   private String getMessage(String property, Locale locale) {
@@ -147,6 +161,12 @@ public class ReloadableAssetManager
       // loop through each asset configuration, one per url, one for global
       for (JsonNode asset : root) {
 
+        // process aliases first
+        if (isGlobal && asset.has("aliases")) {
+          System.out.println(asset.get("aliases"));
+          aliases.putAll(getFieldValueMap(asset.get("aliases")));
+        }
+
         // map to hold the configuration for the url or global
         Map<String, Object> curAssets = new LinkedHashMap<String, Object>();
 
@@ -169,14 +189,14 @@ public class ReloadableAssetManager
 
         // add the title if any
         if (StringUtils.isNotBlank(title)) {
-          curAssets.put("title", title);
+          curAssets.put("title", replaceAlias(title));
         }
 
         // loop through the meta tag configurations
         if (asset.has("meta")) {
           List<Map<String, String>> metas = new ArrayList<Map<String, String>>();
           for (JsonNode meta : asset.get("meta")) {
-            Map<String, String> fieldMap = getFieldValueMap(meta);
+            Map<String, String> fieldMap = replaceAliases(getFieldValueMap(meta));
             if (fieldMap.size() > 0) {
               metas.add(fieldMap);
             }
@@ -193,17 +213,18 @@ public class ReloadableAssetManager
           List<Map<String, String>> scripts = new ArrayList<Map<String, String>>();
           for (JsonNode script : asset.get("scripts")) {
 
-            // scripts can be shorthand of just the href
+            // scripts can be shorthand of just the href, and can be an alias
             Map<String, String> fieldMap = null;
             if (script instanceof TextNode) {
 
               String src = ((TextNode)script).getValueAsText();
+              src = replaceAlias(src);
               fieldMap = new LinkedHashMap<String, String>();
               fieldMap.put("type", "text/javascript");
               fieldMap.put("src", src);
             }
             else {
-              fieldMap = getFieldValueMap(script);
+              fieldMap = replaceAliases(getFieldValueMap(script));
             }
 
             if (fieldMap.size() > 0) {
@@ -221,18 +242,19 @@ public class ReloadableAssetManager
           List<Map<String, String>> links = new ArrayList<Map<String, String>>();
           for (JsonNode link : asset.get("links")) {
 
-            // scripts can be shorthand of just the href
+            // scripts can be shorthand of just the href, and can be an alias
             Map<String, String> fieldMap = null;
             if (link instanceof TextNode) {
 
               String href = ((TextNode)link).getValueAsText();
+              href = replaceAlias(href);
               fieldMap = new LinkedHashMap<String, String>();
               fieldMap.put("rel", "stylesheet");
               fieldMap.put("type", "text/css");
               fieldMap.put("href", href);
             }
             else {
-              fieldMap = getFieldValueMap(link);
+              fieldMap = replaceAliases(getFieldValueMap(link));
             }
 
             if (fieldMap.size() > 0) {
@@ -280,7 +302,7 @@ public class ReloadableAssetManager
             }
           }
         }
-      }
+      } // end asset resources loop
     }
     catch (Exception e) {
       LOG.error("Error while parsing assets: " + configFilename, e);
@@ -761,7 +783,7 @@ public class ReloadableAssetManager
 
     return metaTags;
   }
-  
+
   @Override
   public List<String> getDynamicLinks(List links, Locale locale) {
 
@@ -800,10 +822,10 @@ public class ReloadableAssetManager
 
     return linkTags;
   }
-  
+
   @Override
   public String getDynamicTitle(String title, Locale locale) {
-    
+
     // convert to message if necessary
     if (StringUtils.isNotBlank(title)) {
       title = getMessage(title, locale);
