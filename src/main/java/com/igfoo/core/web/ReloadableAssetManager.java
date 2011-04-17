@@ -49,6 +49,8 @@ public class ReloadableAssetManager
   private Map<String, List> linksCache = new HashMap<String, List>();
   private Map<String, String> titleCache = new HashMap<String, String>();
 
+  public static final String GLOBAL_FILE = "global-assets.json";
+
   public static final String GLOBAL = "global";
   public static final String SCRIPTS = "scripts";
   public static final String METAS = "metas";
@@ -65,11 +67,17 @@ public class ReloadableAssetManager
 
         // loop through the files checking for updated modified times
         for (Entry<String, Long> fileMod : fileModTimes.entrySet()) {
-          File assetConfigFile = new File(fileMod.getKey());
-          if (assetConfigFile.exists()
-            && (assetConfigFile.lastModified() > fileMod.getValue())) {
-            LOG.info("Reloading asset config: " + assetConfigFile.getPath());
-            loadAssetResource(assetConfigFile);
+          File config = new File(fileMod.getKey());
+          if (config.exists() && (config.lastModified() > fileMod.getValue())) {
+            String assetFilename = config.getName();
+            if (StringUtils.equalsIgnoreCase(assetFilename, GLOBAL_FILE)) {
+              LOG.info("Global config changed, reloading all asset configs");
+              loadAllAssetConfigFiles();
+            }
+            else {
+              LOG.info("Asset config changed, reloading: " + config.getPath());
+              loadAssetConfigFile(config);
+            }
           }
         }
 
@@ -135,7 +143,149 @@ public class ReloadableAssetManager
     return attrMap;
   }
 
-  private void loadAssetResource(File assetConfigFile) {
+  private void loadAliases(JsonNode asset) {
+    aliases.putAll(getFieldValueMap(asset.get("aliases")));
+  }
+
+  private void loadAsset(JsonNode asset, boolean isGlobal) {
+
+    // map to hold the configuration for the url or global
+    Map<String, Object> curAssets = new LinkedHashMap<String, Object>();
+
+    // get all paths
+    List<String> paths = new ArrayList<String>();
+    if (asset.has("paths")) {
+      JsonNode pathsNode = asset.get("paths");
+      paths = JsonUtils.getStringValues(pathsNode);
+    }
+
+    String title = JsonUtils.getStringValue(asset, "title");
+    String name = JsonUtils.getStringValue(asset, "name");
+    boolean isNamed = StringUtils.isNotBlank(name);
+
+    // if no path and not global and not named then ignore
+    if (paths.isEmpty() && !isGlobal && !isNamed) {
+      return;
+    }
+
+    // add the title if any
+    if (StringUtils.isNotBlank(title)) {
+      curAssets.put("title", replaceAlias(title));
+    }
+
+    // loop through the meta tag configurations
+    if (asset.has("meta")) {
+      List<Map<String, String>> metas = new ArrayList<Map<String, String>>();
+      for (JsonNode meta : asset.get("meta")) {
+        Map<String, String> fieldMap = replaceAliases(getFieldValueMap(meta));
+        if (fieldMap.size() > 0) {
+          metas.add(fieldMap);
+        }
+      }
+
+      // add meta list to asset map if anything to add
+      if (metas.size() > 0) {
+        curAssets.put(METAS, metas);
+      }
+    }
+
+    // loop through the scripts
+    if (asset.has("scripts")) {
+      List<Map<String, String>> scripts = new ArrayList<Map<String, String>>();
+      for (JsonNode script : asset.get("scripts")) {
+
+        // scripts can be shorthand of just the href, and can be an alias
+        Map<String, String> fieldMap = null;
+        if (script instanceof TextNode) {
+
+          String src = ((TextNode)script).getValueAsText();
+          src = replaceAlias(src);
+          fieldMap = new LinkedHashMap<String, String>();
+          fieldMap.put("type", "text/javascript");
+          fieldMap.put("src", src);
+        }
+        else {
+          fieldMap = replaceAliases(getFieldValueMap(script));
+        }
+
+        if (fieldMap.size() > 0) {
+          scripts.add(fieldMap);
+        }
+      }
+
+      // add script list to asset map if anything to add
+      if (scripts.size() > 0) {
+        curAssets.put(SCRIPTS, scripts);
+      }
+    }
+
+    if (asset.has("links")) {
+      List<Map<String, String>> links = new ArrayList<Map<String, String>>();
+      for (JsonNode link : asset.get("links")) {
+
+        // scripts can be shorthand of just the href, and can be an alias
+        Map<String, String> fieldMap = null;
+        if (link instanceof TextNode) {
+
+          String href = ((TextNode)link).getValueAsText();
+          href = replaceAlias(href);
+          fieldMap = new LinkedHashMap<String, String>();
+          fieldMap.put("rel", "stylesheet");
+          fieldMap.put("type", "text/css");
+          fieldMap.put("href", href);
+        }
+        else {
+          fieldMap = replaceAliases(getFieldValueMap(link));
+        }
+
+        if (fieldMap.size() > 0) {
+          links.add(fieldMap);
+        }
+      }
+
+      // add links list to asset map if anything to add
+      if (links.size() > 0) {
+        curAssets.put(LINKS, links);
+      }
+    }
+
+    // add the current assets as either global or for a specific path
+    if (curAssets.size() > 0) {
+
+      // setup as global, path, or named resources
+      if (isGlobal) {
+        assets.put(GLOBAL, curAssets);
+        if (caching) {
+          scriptsCache.clear();
+          metaCache.clear();
+          linksCache.clear();
+          titleCache.clear();
+        }
+      }
+      else if (isNamed) {
+        namedAssets.put(name, curAssets);
+        if (caching) {
+          scriptsCache.remove(name);
+          metaCache.remove(name);
+          linksCache.remove(name);
+          titleCache.remove(name);
+        }
+      }
+      else {
+        for (String path : paths) {
+          assets.put(path, curAssets);
+          if (caching) {
+            scriptsCache.remove(path);
+            metaCache.remove(path);
+            linksCache.remove(path);
+            titleCache.remove(path);
+          }
+        }
+      }
+    }
+  }
+
+  private void loadAssetConfigFile(File assetConfigFile) {
 
     // don't do anything if config file doesn't exist
     if (!assetConfigFile.exists()) {
@@ -152,160 +302,42 @@ public class ReloadableAssetManager
 
       // processing global file or content file
       String filename = assetConfigFile.getName();
-      boolean isGlobal = StringUtils.equals(filename, "global-assets.json");
-
-      // get the root of the json
+      boolean isGlobal = StringUtils.equals(filename, GLOBAL_FILE);
       ObjectMapper mapper = new ObjectMapper();
-      ArrayNode root = mapper.readValue(assetConfigFile, ArrayNode.class);
+      JsonNode root = mapper.readValue(assetConfigFile, JsonNode.class);
 
-      // loop through each asset configuration, one per url, one for global
-      for (JsonNode asset : root) {
+      // global then load aliases
+      if (isGlobal) {
+        loadAliases(root);
+      }
 
-        // process aliases first
-        if (isGlobal && asset.has("aliases")) {
-          System.out.println(asset.get("aliases"));
-          aliases.putAll(getFieldValueMap(asset.get("aliases")));
+      // assets config files can hold one or more assets
+      if (root instanceof ArrayNode) {
+        for (JsonNode asset : root) {
+          loadAsset(asset, false);
         }
-
-        // map to hold the configuration for the url or global
-        Map<String, Object> curAssets = new LinkedHashMap<String, Object>();
-
-        // get all paths
-        List<String> paths = new ArrayList<String>();
-        if (asset.has("paths")) {
-          JsonNode pathsNode = asset.get("paths");
-          paths = JsonUtils.getStringValues(pathsNode);
-        }
-
-        String title = JsonUtils.getStringValue(asset, "title");
-        String name = JsonUtils.getStringValue(asset, "name");
-        boolean isNamed = StringUtils.isNotBlank(name);
-
-        // if no path and not global and not named then ignore and continue
-        if (paths.isEmpty() && !isGlobal && !isNamed) {
-          LOG.info("No paths for asset, ignoring: " + configFilename);
-          continue;
-        }
-
-        // add the title if any
-        if (StringUtils.isNotBlank(title)) {
-          curAssets.put("title", replaceAlias(title));
-        }
-
-        // loop through the meta tag configurations
-        if (asset.has("meta")) {
-          List<Map<String, String>> metas = new ArrayList<Map<String, String>>();
-          for (JsonNode meta : asset.get("meta")) {
-            Map<String, String> fieldMap = replaceAliases(getFieldValueMap(meta));
-            if (fieldMap.size() > 0) {
-              metas.add(fieldMap);
-            }
-          }
-
-          // add meta list to asset map if anything to add
-          if (metas.size() > 0) {
-            curAssets.put(METAS, metas);
-          }
-        }
-
-        // loop through the scripts
-        if (asset.has("scripts")) {
-          List<Map<String, String>> scripts = new ArrayList<Map<String, String>>();
-          for (JsonNode script : asset.get("scripts")) {
-
-            // scripts can be shorthand of just the href, and can be an alias
-            Map<String, String> fieldMap = null;
-            if (script instanceof TextNode) {
-
-              String src = ((TextNode)script).getValueAsText();
-              src = replaceAlias(src);
-              fieldMap = new LinkedHashMap<String, String>();
-              fieldMap.put("type", "text/javascript");
-              fieldMap.put("src", src);
-            }
-            else {
-              fieldMap = replaceAliases(getFieldValueMap(script));
-            }
-
-            if (fieldMap.size() > 0) {
-              scripts.add(fieldMap);
-            }
-          }
-
-          // add script list to asset map if anything to add
-          if (scripts.size() > 0) {
-            curAssets.put(SCRIPTS, scripts);
-          }
-        }
-
-        if (asset.has("links")) {
-          List<Map<String, String>> links = new ArrayList<Map<String, String>>();
-          for (JsonNode link : asset.get("links")) {
-
-            // scripts can be shorthand of just the href, and can be an alias
-            Map<String, String> fieldMap = null;
-            if (link instanceof TextNode) {
-
-              String href = ((TextNode)link).getValueAsText();
-              href = replaceAlias(href);
-              fieldMap = new LinkedHashMap<String, String>();
-              fieldMap.put("rel", "stylesheet");
-              fieldMap.put("type", "text/css");
-              fieldMap.put("href", href);
-            }
-            else {
-              fieldMap = replaceAliases(getFieldValueMap(link));
-            }
-
-            if (fieldMap.size() > 0) {
-              links.add(fieldMap);
-            }
-          }
-
-          // add links list to asset map if anything to add
-          if (links.size() > 0) {
-            curAssets.put(LINKS, links);
-          }
-        }
-
-        // add the current assets as either global or for a specific path
-        if (curAssets.size() > 0) {
-
-          // setup as global, path, or named resources
-          if (isGlobal) {
-            assets.put(GLOBAL, curAssets);
-            if (caching) {
-              scriptsCache.clear();
-              metaCache.clear();
-              linksCache.clear();
-              titleCache.clear();
-            }
-          }
-          else if (isNamed) {
-            namedAssets.put(name, curAssets);
-            if (caching) {
-              scriptsCache.remove(name);
-              metaCache.remove(name);
-              linksCache.remove(name);
-              titleCache.remove(name);
-            }
-          }
-          else {
-            for (String path : paths) {
-              assets.put(path, curAssets);
-              if (caching) {
-                scriptsCache.remove(path);
-                metaCache.remove(path);
-                linksCache.remove(path);
-                titleCache.remove(path);
-              }
-            }
-          }
-        }
-      } // end asset resources loop
+      }
+      else {
+        loadAsset(root, isGlobal);
+      }
     }
     catch (Exception e) {
       LOG.error("Error while parsing assets: " + configFilename, e);
+    }
+  }
+
+  private void loadAllAssetConfigFiles() {
+
+    // loop through resources to load asset configs
+    for (Resource resource : resources) {
+      try {
+        File assetConfigFile = resource.getFile();
+        LOG.info("Loading asset config: " + assetConfigFile.getPath());
+        loadAssetConfigFile(assetConfigFile);
+      }
+      catch (Exception e) {
+        // do nothing, continue with other files
+      }
     }
   }
 
@@ -375,21 +407,14 @@ public class ReloadableAssetManager
 
     // set the root directory and resources
     this.rootDir = rootDir;
-    this.resources = resources;
+    setResources(resources);
   }
 
   public void initialize() {
 
-    // loop through resources to load asset configs
-    for (Resource resource : resources) {
-      try {
-        File assetConfigFile = resource.getFile();
-        LOG.info("Loading asset config: " + assetConfigFile.getPath());
-        loadAssetResource(assetConfigFile);
-      }
-      catch (Exception e) {
-        // do nothing, continue with other files
-      }
+    // load all asset config files
+    if (resources != null && resources.length > 0) {
+      loadAllAssetConfigFiles();
     }
 
     // activate the service
@@ -844,6 +869,23 @@ public class ReloadableAssetManager
   }
 
   public void setResources(Resource[] resources) {
+
+    // make sure global assets file is first
+    for (int i = 0; i < resources.length; i++) {
+      try {
+        String configName = resources[i].getFile().getName();
+        if (i > 0 && StringUtils.equalsIgnoreCase(configName, GLOBAL_FILE)) {
+          Resource global = resources[i];
+          resources[i] = resources[0];
+          resources[0] = global;
+          break;
+        }
+      }
+      catch (Exception e) {
+        // do nothing, continue with other files
+      }
+    }
+
     this.resources = resources;
   }
 
