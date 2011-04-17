@@ -237,7 +237,7 @@
 
   <scm>
     <connection>scm:git:git@s01.igfoo.com:igfoo-spring.git</connection>
-    <url>scm:git:git:git@s01.igfoo.com:igfoo-spring.git</url>
+    <url>scm:git:git@s01.igfoo.com:igfoo-spring.git</url>
     <developerConnection>scm:git:git:@s01.igfoo.com:igfoo-spring.git</developerConnection>  
   </scm>
   
