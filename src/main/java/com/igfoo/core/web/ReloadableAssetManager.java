@@ -93,7 +93,17 @@ public class ReloadableAssetManager
   }
 
   private String replaceAlias(String value) {
-    return aliases.containsKey(value) ? aliases.get(value) : value;
+
+    if (StringUtils.isNotBlank(value) && StringUtils.startsWith(value, "${")
+      && StringUtils.endsWith(value, "}")) {
+      
+      String key = StringUtils.removeStart(value, "${");
+      key = StringUtils.removeEnd(key, "}");
+      
+      return aliases.get(key);
+    }
+    
+    return value;
   }
 
   private Map<String, String> replaceAliases(Map<String, String> keyVals) {

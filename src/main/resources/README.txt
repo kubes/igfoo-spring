@@ -86,6 +86,9 @@ can be configured per file.  An example is below.
   }
 ]
 
+The assets json can be a single object or an array of objects for multiple asset
+configuration per file.
+
 Path is the request path.  As you can see we can configure meta, script, link,
 and title elements.  Title is the title of the page.  Meta are meta tags.  The
 links are link elements including style sheets.  Meta will include as attributes
@@ -114,6 +117,35 @@ Links contain both link elements and style sheet elements.  For example you can
 have a canonical url element.  Links also have a shorthand form.  If using the
 shorthand type is "text/css" and href is the string value.
 
+{
+    "aliases" : {    
+      "core.css" : "/css/core/core.css",      
+      "jquery.js" : "/js/vendor/jquery-1.4.4.min.js",      
+    }
+}
+
+The global-assets.json file can configure aliases along with the standard link,
+script, and meta elements.  Aliases can then be used as either key or values
+anywhere in any of the asset config files.  This is especially useful when you
+have an element, such as a script, that is used in many different places but
+not globally.
+
+[
+  {
+    "path": "/example2.html",    
+    "scripts" : [
+      "${jquery.js}",
+    ],
+    "links" : [      
+      "${core.css}"
+    ] 
+  }
+]
+
+In this example the jquery.js and core.css aliases would be replaced with their
+corresponding full values before being displayed on the page.  Note the opening
+and closing tags for defining ${aliases}.
+
 The asset manager tags are included on the JSP page using JSP tags.
 
 <%@ taglib prefix="assets" uri="igfoo-assets.tld" %>
@@ -125,7 +157,7 @@ The asset manager tags are included on the JSP page using JSP tags.
   <body>
     <div id="content">
       <div id="ads">
-        <assets:include types="scripts" ids="google-analytics, myid" />
+        <assets:include types="scripts" names="google-analytics, myid" />
       </div>
     </div>
     <div id="footer>
